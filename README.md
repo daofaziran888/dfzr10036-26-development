@@ -64,6 +64,9 @@ npm run dev
 | 流去重 | `dedup_stream` | 去重窗口 | 窗口编号、数据流、去重键 |
 | 湖仓提交 | `iceberg_commit` | 提交快照 | 快照编号、目标表、数据文件 |
 | 小文件合并 | `compaction` | 合并任务 | 任务编号、目标表、文件数量 |
+| 快照数据文件 | `snapshot_data_file` | 数据文件明细 | 文件路径、目标表、分区取值、文件大小、file_state |
+| 合并计划 | `compaction_plan` | 合并计划 | 计划编号、目标表、单元数、文件总数、状态 |
+| 合并工作单元 | `compaction_unit` | 可派发清单条目 | 单元编号、分区取值、冻结输入清单、状态 |
 | 快照过期 | `expire_snap` | 过期策略 | 策略编号、目标表、保留数量 |
 | 流聚合 | `metric_aggr` | 聚合窗口 | 窗口编号、数据流、聚合键 |
 | 增量回填 | `backfill_run` | 回填任务 | 任务编号、目标表、起始位点 |
@@ -80,6 +83,27 @@ npm run dev
   `frontend/src/domain/<模块>.ts`，用于承载真实业务差异并维持36题位容量。
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
+
+## 可派发文件分区清单（小文件合并）
+
+快照内数据文件明细（`snapshot_data_file`）按「目标表 + 分区」聚合，依据容量阈值
+（文件数 2~5 个、总大小 10~100MB，边界含等号）贪心装箱生成可派发的合并工作单元。
+专属工作台为前端「可派发分区清单」（`/compaction-dispatch`），接口前缀
+`/api/compaction-dispatch`：
+
+| 端点 | 作用 |
+| --- | --- |
+| `GET /files` | 快照数据文件明细，可按表/分区/`file_state` 过滤 |
+| `GET /candidates?table=` | 按阈值生成候选分区清单（不落库、不领取） |
+| `POST /plans` | 校验并保存合并计划，成功即原子领取输入文件 |
+| `GET /plans`、`GET /plans/{id}` | 计划与冻结输入清单查询（历史可核对） |
+| `POST /plans/{id}/dispatch` | 只派发待领取单元，已发出/已完成单元自动跳过 |
+| `POST /plans/{id}/units/{uid}/report` | 回传实际替换结果，成功置 `replaced`，失败释放回可重试范围 |
+| `POST /plans/{id}/units/{uid}/retry` | 失败重试，范围严格限定本单元冻结清单内未确认文件 |
+
+领域约束：单元不跨分区、计划不跨表、输出路径不得重写到其他表/分区；
+`replaced` 路径永不再选、`claimed` 路径不可被其他计划重复领取；
+每个单元保存时冻结输入清单，替换回执只确认本计划本单元尚未确认的文件。
 
 领域：数据工程
 子方向：数仓与数据湖

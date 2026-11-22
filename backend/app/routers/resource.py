@@ -73,6 +73,14 @@ def export_entries(
     )
 
 
+# 固定路径必须先于 /{module}/{entry_id} 注册，否则 flows/list 会被当成 entry_id 解析。
+@router.get("/flows/list")
+def list_flows() -> dict[str, Any]:
+    """列出所有可编排流链路"""
+    from app.services.orchestrator import FLOWS
+    return {"flows": list(FLOWS.keys()), "count": len(FLOWS)}
+
+
 @router.get("/{module}/{entry_id}", response_model=dict)
 def get_entry(module: str, entry_id: int) -> dict[str, Any]:
     service = require_service(module)
@@ -85,7 +93,11 @@ def get_entry(module: str, entry_id: int) -> dict[str, Any]:
 @router.post("/{module}", response_model=ActionResult)
 def create_entry(module: str, payload: EntryPayload) -> ActionResult:
     service = require_service(module)
-    entry, missing = service.create_entry(payload.values)
+    try:
+        entry, missing = service.create_entry(payload.values)
+    except ValueError as exc:
+        # 领域服务（如可派发清单）拒绝绕过专用流程的直接登记
+        return ActionResult(ok=False, message=str(exc))
     if missing:
         return ActionResult(ok=False, message=f"缺少必填字段：{'、'.join(missing)}")
     return ActionResult(ok=True, message=f"{service.ENTITY}已登记", entry=entry)
@@ -154,10 +166,3 @@ def trigger_flow_sink_block_to_compaction(sink_entry_id: int) -> dict[str, Any]:
     """主线链路: 落盘阻塞 -> 小文件合并清理"""
     from app.services.orchestrator import flow_sink_block_to_compaction
     return flow_sink_block_to_compaction(sink_entry_id)
-
-
-@router.get("/flows/list")
-def list_flows() -> dict[str, Any]:
-    """列出所有可编排流链路"""
-    from app.services.orchestrator import FLOWS
-    return {"flows": list(FLOWS.keys()), "count": len(FLOWS)}

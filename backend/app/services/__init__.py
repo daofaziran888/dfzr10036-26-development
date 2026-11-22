@@ -16,6 +16,11 @@ from app.services.schema_evo import SchemaEvoService
 from app.services.dedup_stream import DedupStreamService
 from app.services.iceberg_commit import IcebergCommitService
 from app.services.compaction import CompactionService
+from app.services.compaction_dispatch import (
+    CompactionPlanService,
+    CompactionUnitService,
+    SnapshotDataFileService,
+)
 from app.services.expire_snap import ExpireSnapService
 from app.services.metric_aggr import MetricAggrService
 from app.services.backfill_run import BackfillRunService
@@ -40,6 +45,9 @@ SERVICES: dict[str, BaseModuleService] = {
     "dedup_stream": DedupStreamService(),
     "iceberg_commit": IcebergCommitService(),
     "compaction": CompactionService(),
+    "snapshot_data_file": SnapshotDataFileService(),
+    "compaction_plan": CompactionPlanService(),
+    "compaction_unit": CompactionUnitService(),
     "expire_snap": ExpireSnapService(),
     "metric_aggr": MetricAggrService(),
     "backfill_run": BackfillRunService(),

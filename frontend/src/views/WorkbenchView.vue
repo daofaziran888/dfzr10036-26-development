@@ -6,7 +6,7 @@
         <p class="page-desc">{{ meta.desc }}</p>
       </div>
       <div class="page-actions">
-        <button class="btn primary" data-testid="open-create" type="button" @click="openCreate">
+        <button v-if="hasActions" class="btn primary" data-testid="open-create" type="button" @click="openCreate">
           登记{{ meta.entity }}
         </button>
         <button class="btn" data-testid="export" type="button" @click="exportRows">
@@ -42,14 +42,14 @@
         <tr>
           <th v-for="column in meta.fields" :key="column">{{ column }}</th>
           <th>当前状态</th>
-          <th>可执行动作</th>
+          <th v-if="hasActions">可执行动作</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="row in rows" :key="String(row.id)" :data-testid="`row-${row.id}`" :data-status="String(row.status)">
           <td v-for="column in meta.fields" :key="column">{{ row[column] ?? '—' }}</td>
           <td>{{ row.status }}</td>
-          <td class="row-actions">
+          <td v-if="hasActions" class="row-actions">
             <button
               v-for="action in meta.actions"
               :key="action"
@@ -63,8 +63,8 @@
           </td>
         </tr>
         <tr v-if="!rows.length">
-          <td :colspan="meta.fields.length + 2" class="empty-state">
-            暂无{{ meta.name }}数据，可先登记{{ meta.entity }}
+          <td :colspan="meta.fields.length + (hasActions ? 2 : 1)" class="empty-state">
+            暂无{{ meta.name }}数据
           </td>
         </tr>
       </tbody>
@@ -129,6 +129,9 @@ const statusSummary = computed(() =>
     count: rows.value.filter((row) => String(row.status) === status).length,
   })),
 )
+
+// 合并计划/数据文件明细等模块的动作全部由专用派发页面承接，通用表格不再显示动作列。
+const hasActions = computed(() => meta.actions.length > 0)
 
 function resetFilters() {
   filters.value = {}
